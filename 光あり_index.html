@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ドライビング反応速度テスト</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.8.0/firebase-analytics.js";
+  import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.8.0/firebase-firestore.js";
+
+  // ⚠️ セキュリティ警告: 本番環境では以下のAPIキーをハードコードせず、
+  // 環境変数またはサーバーサイドで管理してください。
+  // Firebase Console でドメイン制限・Firestore ルールを必ず設定してください。
+  const firebaseConfig = {
+    apiKey: "AIzaSyCLPJ0vNfDNsg7eRBEkUPQbIklYHQwVCrs",
+    authDomain: "graduate-may25.firebaseapp.com",
+    projectId: "graduate-may25",
+    storageBucket: "graduate-may25.firebasestorage.app",
+    messagingSenderId: "269906337595",
+    appId: "1:269906337595:web:febe79929f41cf2517611e",
+    measurementId: "G-4HFNT35Z17"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+  const db = getFirestore(app);
+
+  // メインスクリプトから参照できるようグローバルに公開
+  window.db = db;
+  window.firestoreCollection = collection;
+  window.firestoreAddDoc = addDoc;
+</script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0f; color: #fff; font-family: 'Courier New', monospace; overflow: hidden; height: 100vh; width: 100vw; }
+  canvas { display: block; position: fixed; top: 0; left: 0; z-index: 0; pointer-events: none; }
+
+  /* ===== スタート画面 ===== */
+  #start-screen {
+    position: fixed; inset: 0; z-index: 1000;
+    display: flex; align-items: flex-start; justify-content: center;
+    background: linear-gradient(135deg, #0a0a0f 0%, #0d1a2a 50%, #0a0a0f 100%);
+    overflow-y: auto; padding: 24px 0;
+  }
+  .start-card {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 4px; padding: 48px 56px; width: 420px; max-width: calc(100vw - 32px);
+    backdrop-filter: blur(20px); position: relative; overflow: visible;
+    margin: auto 0;
+  }
+  .start-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, #00e5ff, #ff3d3d, transparent);
+  }
+  .game-title { font-size: 11px; letter-spacing: 6px; color: #00e5ff; text-transform: uppercase; margin-bottom: 8px; opacity: 0.8; }
+  .game-subtitle { font-size: 28px; font-weight: 700; margin-bottom: 8px; background: linear-gradient(90deg, #fff 60%, #888); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1.2; }
+  .game-desc { font-size: 12px; color: #666; margin-bottom: 36px; letter-spacing: 1px; }
+  .field-label { font-size: 10px; letter-spacing: 3px; color: #00e5ff; text-transform: uppercase; margin-bottom: 8px; opacity: 0.7; }
+  .field-group { margin-bottom: 24px; }
+  input[type="number"] { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 2px; color: #fff; font-family: 'Courier New', monospace; font-size: 16px; padding: 12px 16px; outline: none; transition: border-color 0.2s; }
+  input[type="number"]:focus { border-color: #00e5ff; }
+  input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .gender-options { display: flex; gap: 12px; }
+  .gender-option { flex: 1; }
+  .gender-option input[type="radio"] { display: none; }
+  .gender-option label { display: block; text-align: center; padding: 10px; border: 1px solid rgba(255,255,255,0.15); border-radius: 2px; font-size: 13px; cursor: pointer; transition: all 0.2s; letter-spacing: 2px; }
+  .gender-option input:checked + label { border-color: #00e5ff; background: rgba(0,229,255,0.08); color: #00e5ff; }
+  .gender-option label:hover { border-color: rgba(255,255,255,0.3); }
+  .start-btn { width: 100%; background: linear-gradient(90deg, #00e5ff, #0099ff); border: none; border-radius: 2px; color: #000; font-family: 'Courier New', monospace; font-size: 12px; font-weight: 700; letter-spacing: 4px; padding: 16px; cursor: pointer; text-transform: uppercase; margin-top: 8px; transition: opacity 0.2s, transform 0.1s; }
+  .start-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .controls-hint { margin-top: 20px; padding: 14px 16px; border-top: 1px solid rgba(255,255,255,0.12); border: 1px solid rgba(0,229,255,0.15); border-radius: 2px; font-size: 11px; color: #aaa; line-height: 2.2; letter-spacing: 1px; background: rgba(0,229,255,0.04); }
+  .controls-hint span { color: #00e5ff; font-weight: 700; }
+
+  /* ===== ルール説明画面 ===== */
+  #rules-screen {
+    display: none; position: fixed; inset: 0; z-index: 1100;
+    align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #0a0a0f 0%, #0d1a2a 50%, #0a0a0f 100%);
+    overflow-y: auto; padding: 24px 0;
+  }
+  .rules-card {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 4px; padding: 48px 56px; width: 480px; max-width: calc(100vw - 32px);
+    backdrop-filter: blur(20px); position: relative; overflow: visible;
+    margin: auto;
+  }
+  .rules-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, #00e5ff, #ff3d3d, transparent);
+  }
+  .rules-title-label { font-size: 11px; letter-spacing: 6px; color: #00e5ff; text-transform: uppercase; margin-bottom: 8px; opacity: 0.8; }
+  .rules-title { font-size: 26px; font-weight: 700; margin-bottom: 28px; background: linear-gradient(90deg, #fff 60%, #888); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1.3; }
+  .rules-section { margin-bottom: 24px; }
+  .rules-section-title { font-size: 9px; letter-spacing: 3px; color: #00e5ff; text-transform: uppercase; margin-bottom: 12px; opacity: 0.8; border-bottom: 1px solid rgba(0,229,255,0.15); padding-bottom: 6px; }
+  .rules-item { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; font-size: 13px; color: #ccc; line-height: 1.6; }
+  .rules-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .rules-key { display: inline-block; background: rgba(0,229,255,0.1); border: 1px solid rgba(0,229,255,0.3); border-radius: 2px; color: #00e5ff; font-size: 10px; letter-spacing: 2px; padding: 2px 8px; font-family: 'Courier New', monospace; white-space: nowrap; }
+  .rules-start-btn { width: 100%; background: linear-gradient(90deg, #00e5ff, #0099ff); border: none; border-radius: 2px; color: #000; font-family: 'Courier New', monospace; font-size: 12px; font-weight: 700; letter-spacing: 4px; padding: 16px; cursor: pointer; text-transform: uppercase; margin-top: 8px; transition: opacity 0.2s, transform 0.1s; }
+  .rules-start-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+  /* ===== HUD ===== */
+  #ui { display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 500; pointer-events: none; }
+  .hud-bar { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; background: linear-gradient(180deg, rgba(0,0,0,0.75) 0%, transparent 100%); }
+  .hud-item { display: flex; flex-direction: column; align-items: center; }
+  .hud-label { font-size: 9px; letter-spacing: 3px; color: rgba(255,255,255,0.4); text-transform: uppercase; margin-bottom: 2px; }
+  .hud-value { font-size: 22px; font-weight: 700; color: #fff; letter-spacing: -1px; }
+  .hud-unit { font-size: 9px; color: rgba(255,255,255,0.3); letter-spacing: 2px; }
+
+  /* ===== 信号インジケーター ===== */
+  #signal-indicator {
+    display: none; position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+    z-index: 600; text-align: center;
+  }
+  .signal-box {
+    background: rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px; padding: 8px 12px; display: flex; gap: 10px; align-items: center;
+  }
+  .sig-lamp { width: 18px; height: 18px; border-radius: 50%; background: #333; transition: background 0.2s, box-shadow 0.2s; }
+  .sig-lamp.red.on    { background: #ff2200; box-shadow: 0 0 12px #ff2200; }
+  .sig-lamp.yellow.on { background: #ffcc00; box-shadow: 0 0 12px #ffcc00; }
+  .sig-lamp.green.on  { background: #00ff44; box-shadow: 0 0 12px #00ff44; }
+
+  /* ===== アラート ===== */
+  #space-prompt {
+    display: none; position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    z-index: 600; background: rgba(255,60,60,0.15); border: 1px solid rgba(255,60,60,0.5);
+    border-radius: 4px; padding: 12px 32px; font-size: 13px; letter-spacing: 3px;
+    color: #ff6060; text-transform: uppercase; white-space: nowrap;
+    animation: pulse 0.8s ease-in-out infinite alternate;
+  }
+  @keyframes pulse { from { opacity: 0.6; } to { opacity: 1; box-shadow: 0 0 20px rgba(255,60,60,0.3); } }
+
+  #react-flash { display: none; position: fixed; inset: 0; z-index: 550; background: rgba(0,229,255,0.08); pointer-events: none; }
+  @keyframes flash { from { opacity: 1; } to { opacity: 0; } }
+
+  /* ブレーキオーバーレイ */
+  #brake-overlay {
+    position: fixed; inset: 0; z-index: 520; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(180,0,0,0.55) 100%);
+    opacity: 0; transition: opacity 0.08s ease-out;
+  }
+
+  /* アクセルオーバーレイ */
+  #accel-overlay {
+    position: fixed; inset: 0; z-index: 518; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 30%, rgba(0,180,80,0.18) 100%);
+    opacity: 0; transition: opacity 0.12s ease-out;
+  }
+
+  /* スピードライン */
+  #speed-lines {
+    position: fixed; inset: 0; z-index: 519; pointer-events: none;
+    opacity: 0; transition: opacity 0.15s ease-out;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0%, transparent 48%,
+      rgba(255,255,255,0.03) 49%, rgba(255,255,255,0.03) 51%,
+      transparent 52%
+    );
+  }
+
+  /* ブレーキランプインジケーター */
+  #brake-indicator {
+    display: none; position: fixed; bottom: 110px; left: 50%; transform: translateX(-50%);
+    z-index: 600; background: rgba(180,0,0,0.25); border: 1px solid rgba(255,60,60,0.6);
+    border-radius: 3px; padding: 6px 22px; font-size: 11px; letter-spacing: 4px;
+    color: #ff4444; text-transform: uppercase; pointer-events: none;
+    animation: brakePulse 0.5s ease-in-out infinite alternate;
+  }
+  @keyframes brakePulse { from { opacity: 0.7; } to { opacity: 1; box-shadow: 0 0 14px rgba(255,0,0,0.4); } }
+
+  /* アクセルインジケーター */
+  #accel-indicator {
+    display: none; position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%);
+    z-index: 600; background: rgba(0,160,60,0.22); border: 1px solid rgba(0,255,100,0.5);
+    border-radius: 3px; padding: 6px 22px; font-size: 11px; letter-spacing: 4px;
+    color: #00ff66; text-transform: uppercase; pointer-events: none;
+    animation: accelPulse 0.6s ease-in-out infinite alternate;
+  }
+  @keyframes accelPulse { from { opacity: 0.7; } to { opacity: 1; box-shadow: 0 0 14px rgba(0,255,100,0.4); } }
+
+  /* ===== ボタン ===== */
+  #exit-btn {
+    display: none; position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    background: rgba(255,61,61,0.15); border: 1px solid rgba(255,61,61,0.4);
+    border-radius: 3px; color: rgba(255,255,255,0.6); font-family: 'Courier New', monospace;
+    font-size: 10px; letter-spacing: 3px; padding: 10px 18px;
+    cursor: pointer; text-transform: uppercase; transition: all 0.2s; pointer-events: auto;
+  }
+  #exit-btn:hover { background: #ff3d3d; color: #000; border-color: #ff3d3d; }
+
+  #controls-overlay {
+    display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    z-index: 500; font-size: 10px; letter-spacing: 2px; color: rgba(255,255,255,0.2);
+    text-transform: uppercase; pointer-events: none; white-space: nowrap;
+  }
+
+  /* ===== タッチUI ===== */
+  #touch-controls {
+    display: none; position: fixed; bottom: 90px; left: 0; right: 0;
+    z-index: 600; justify-content: space-between; align-items: center;
+    padding: 0 20px; pointer-events: none;
+  }
+  .touch-btn {
+    pointer-events: all; width: 76px; height: 76px; background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2); border-radius: 50%; color: #fff;
+    font-size: 22px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  }
+  #touch-brake {
+    width: 82px; height: 82px; font-size: 11px; letter-spacing: 2px;
+    background: rgba(180,0,0,0.2); border-color: rgba(255,60,60,0.5); color: #ff6060;
+  }
+  #touch-accel {
+    width: 82px; height: 82px; font-size: 11px; letter-spacing: 2px;
+    background: rgba(0,160,60,0.2); border-color: rgba(0,255,100,0.5); color: #00ff66;
+  }
+  #touch-react {
+    display: none; position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+    z-index: 990; pointer-events: all; width: 160px; height: 56px;
+    background: rgba(0,229,255,0.1); border: 1px solid rgba(0,229,255,0.4); border-radius: 4px;
+    color: #00e5ff; font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 3px;
+    text-transform: uppercase; align-items: center; justify-content: center;
+    cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  }
+
+  /* ===== 右端の点滅ライト ===== */
+  #edge-blink-light {
+    display: none;
+    position: fixed;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 700;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 8px 3px rgba(255,255,255,0.8);
+    pointer-events: none;
+    animation: edgeBlink 0.6s ease-in-out infinite alternate;
+  }
+  @keyframes edgeBlink {
+    from { opacity: 0.15; box-shadow: 0 0 4px 1px rgba(255,255,255,0.3); }
+    to   { opacity: 1;    box-shadow: 0 0 12px 5px rgba(255,255,255,0.9); }
+  }
+</style>
+</head>
+<body>
+
+<!-- スタート画面 -->
+<div id="start-screen">
+  <div class="start-card">
+    <div class="game-title">Reaction Test</div>
+    <div class="game-subtitle">ドライビング<br>反応速度テスト</div>
+    <div class="game-desc">// 前方の人間（青い物体）に素早く反応しよう</div>
+    <div class="field-group">
+      <div class="field-label">年齢</div>
+      <input type="number" id="input-age" placeholder="例: 30" min="1" max="120">
+    </div>
+    <div class="field-group">
+      <div class="field-label">性別</div>
+      <div class="gender-options">
+        <div class="gender-option"><input type="radio" name="gender" id="g-male" value="男性"><label for="g-male">男性</label></div>
+        <div class="gender-option"><input type="radio" name="gender" id="g-female" value="女性"><label for="g-female">女性</label></div>
+        <div class="gender-option"><input type="radio" name="gender" id="g-other" value="その他"><label for="g-other">その他</label></div>
+      </div>
+    </div>
+    <button class="start-btn" id="start-btn">スタート</button>
+    <div class="controls-hint">
+      <div style="font-size:9px;letter-spacing:3px;color:#00e5ff;text-transform:uppercase;margin-bottom:10px;opacity:0.8;">操作方法</div>
+      <span>A / ←</span> 左移動 &nbsp;|&nbsp; <span>D / →</span> 右移動<br>
+      <span>W / ↑</span> アクセル &nbsp;|&nbsp; <span>S / ↓</span> ブレーキ<br>
+      <span>SPACE</span> 人間（青い物体）に反応
+    </div>
+  </div>
+</div>
+
+<!-- ルール説明画面 -->
+<div id="rules-screen">
+  <div class="rules-card">
+    <div class="rules-title-label">How to Play</div>
+    <div class="rules-title">ゲームの<br>ルール説明</div>
+
+    <div class="rules-section">
+      <div class="rules-section-title">ゲーム概要</div>
+      <div class="rules-item">
+        <span class="rules-icon">🚗</span>
+        <span>車を運転しながら、前方に現れる<strong style="color:#fff">人間（青い物体）</strong>に素早く反応するテストです。反応時間が計測・記録されます。</span>
+      </div>
+      <div class="rules-item">
+        <span class="rules-icon">⏱️</span>
+        <span>テスト時間は <strong style="color:#ffee44">5分間</strong>。時間内にできるだけ多くの反応を計測します。</span>
+      </div>
+    </div>
+
+    <div class="rules-section">
+      <div class="rules-section-title">反応の方法</div>
+      <div class="rules-item">
+        <span class="rules-icon">🟦</span>
+        <span><strong style="color:#fff">人間（青い物体）</strong>が前方に近づき、画面下部に「SPACE キーで反応！」が表示されたら、<span class="rules-key">SPACE</span> を押してください。</span>
+      </div>
+    </div>
+
+    <div class="rules-section">
+      <div class="rules-section-title">操作方法</div>
+      <div class="rules-item">
+        <span class="rules-icon">↔️</span>
+        <span>左右移動：<span class="rules-key">A / ←</span> &nbsp; <span class="rules-key">D / →</span></span>
+      </div>
+      <div class="rules-item">
+        <span class="rules-icon">⬆️</span>
+        <span>アクセル：<span class="rules-key">W / ↑</span> &nbsp;&nbsp; ブレーキ：<span class="rules-key">S / ↓</span></span>
+      </div>
+      <div class="rules-item">
+        <span class="rules-icon">🎯</span>
+        <span>反応：<span class="rules-key">SPACE</span>（スペースキー）</span>
+      </div>
+    </div>
+
+    <button class="rules-start-btn" id="rules-start-btn">ゲームスタート →</button>
+  </div>
+</div>
+
+<div id="ui">
+  <div class="hud-bar">
+    <div class="hud-item"><div class="hud-label">速度</div><div class="hud-value" id="speed">0</div><div class="hud-unit">km/h</div></div>
+    <div class="hud-item"><div class="hud-label">残り時間</div><div class="hud-value" id="timer" style="color:#ffee44">5:00</div><div class="hud-unit">min</div></div>
+    <div class="hud-item"><div class="hud-label">反応時間</div><div class="hud-value" id="react-time" style="color:#00e5ff">---</div><div class="hud-unit">ms</div></div>
+    <div class="hud-item"><div class="hud-label">計測回数</div><div class="hud-value" id="count">0</div><div class="hud-unit">回</div></div>
+  </div>
+</div>
+
+<!-- 信号インジケーター（HUD上） -->
+<div id="signal-indicator">
+  <div class="signal-box">
+    <div class="sig-lamp red"   id="sig-red"></div>
+    <div class="sig-lamp yellow" id="sig-yellow"></div>
+    <div class="sig-lamp green" id="sig-green" ></div>
+  </div>
+</div>
+
+<div id="space-prompt">SPACE キーで反応！</div>
+<div id="react-flash"></div>
+<div id="brake-overlay"></div>
+<div id="accel-overlay"></div>
+<div id="speed-lines"></div>
+<div id="brake-indicator">BRAKE</div>
+<div id="accel-indicator">ACCEL</div>
+
+<!-- ゲーム終了画面 -->
+<div id="gameover-screen" style="display:none; position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,0.88); display:none; align-items:center; justify-content:center; flex-direction:column;">
+  <div style="text-align:center; padding:48px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.12); border-radius:4px; min-width:360px; position:relative; overflow:hidden;">
+    <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#00e5ff,#ff3d3d,transparent);"></div>
+    <div style="font-size:11px;letter-spacing:6px;color:#00e5ff;text-transform:uppercase;margin-bottom:12px;opacity:0.8;">Result</div>
+    <div style="font-size:32px;font-weight:700;margin-bottom:6px;background:linear-gradient(90deg,#fff 60%,#888);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">テスト終了</div>
+    <div style="font-size:12px;color:#555;letter-spacing:2px;margin-bottom:32px;">5分間お疲れさまでした</div>
+    <div style="display:flex;gap:24px;justify-content:center;margin-bottom:32px;">
+      <div style="text-align:center;">
+        <div style="font-size:10px;letter-spacing:3px;color:rgba(255,255,255,0.4);text-transform:uppercase;margin-bottom:4px;">計測回数</div>
+        <div style="font-size:36px;font-weight:700;color:#00e5ff;" id="go-count">0</div>
+        <div style="font-size:9px;color:rgba(255,255,255,0.3);letter-spacing:2px;">回</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:10px;letter-spacing:3px;color:rgba(255,255,255,0.4);text-transform:uppercase;margin-bottom:4px;">平均反応時間</div>
+        <div style="font-size:36px;font-weight:700;color:#ffee44;" id="go-avg">---</div>
+        <div style="font-size:9px;color:rgba(255,255,255,0.3);letter-spacing:2px;">ms</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:10px;letter-spacing:3px;color:rgba(255,255,255,0.4);text-transform:uppercase;margin-bottom:4px;">最速反応</div>
+        <div style="font-size:36px;font-weight:700;color:#ff8844;" id="go-best">---</div>
+        <div style="font-size:9px;color:rgba(255,255,255,0.3);letter-spacing:2px;">ms</div>
+      </div>
+    </div>
+    <button id="go-save-btn" style="width:100%;background:linear-gradient(90deg,#00e5ff,#0099ff);border:none;border-radius:2px;color:#000;font-family:'Courier New',monospace;font-size:12px;font-weight:700;letter-spacing:4px;padding:16px;cursor:pointer;text-transform:uppercase;margin-bottom:12px;">データを保存</button>
+    <button id="go-reload-btn" style="width:100%;background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:2px;color:rgba(255,255,255,0.4);font-family:'Courier New',monospace;font-size:11px;letter-spacing:3px;padding:12px;cursor:pointer;text-transform:uppercase;">もう一度プレイ</button>
+  </div>
+</div>
+
+<div id="edge-blink-light"></div>
+<button id="exit-btn">終了 / 保存</button>
+<div id="controls-overlay">← A / → D 移動 &nbsp;|&nbsp; W / ↑ アクセル &nbsp;|&nbsp; S / ↓ ブレーキ &nbsp;|&nbsp; SPACE 人間に反応</div>
+
+<!-- タッチ -->
+<div id="touch-controls">
+  <div class="touch-btn" id="touch-left">◀</div>
+  <div class="touch-btn" id="touch-brake">BRAKE</div>
+  <div class="touch-btn" id="touch-accel">ACCEL</div>
+  <div class="touch-btn" id="touch-right">▶</div>
+</div>
+<div id="touch-react">REACT!</div>
+
+<script>
+(function () {
+    'use strict';
+
+    // ===== 状態変数 =====
+    var scene, camera, renderer, animId;
+    var obstacles = [], intersections = [];
+    var keys = {}, touchLeft = false, touchRight = false, touchBrake = false, touchAccel = false;
+    var spd = 0.5;
+    var SPD_BASE     = 0.5;    // 初期速度
+    var SPD_MAX      = 0.6;    // 通常最高速度（60km/h）
+    var SPD_ACCEL_MAX= 0.6;    // アクセル時最高速度（60km/h）
+    var SPD_BRAKE_MIN= 0.05;   // ブレーキ中の最低速度
+    var accelerating = false;
+    var braking = false;
+    var userData = { playerId: '', age: '', gender: '' };
+    var sessionResults = [];
+    var activeObstacle = null;
+    var activeSignal    = null;
+    var gameStartTime   = 0;
+    var GAME_DURATION   = 5 * 60 * 1000; // 5分（ms）
+    var gameOver        = false;
+
+    // 交差点設定
+    var INTER_MIN = 300, INTER_MAX = 600, NUM_INTER = 15;
+    var SIGNAL_TRIGGER = 100;  // この距離で表示・信号サイクル開始
+    var OB_TRIGGER = 120;      // この距離で障害物表示・反応計測開始
+
+    // ===== マテリアル共有 =====
+    var MAT = {
+        road:    new THREE.MeshPhongMaterial({ color: 0x1a1a1a }),
+        white:   new THREE.MeshBasicMaterial({ color: 0xffffff }),
+        yellow:  new THREE.MeshBasicMaterial({ color: 0xffee00, transparent: true, opacity: 0.85 }),
+        skin:    new THREE.MeshPhongMaterial({ color: 0xffdbac }),
+        blue:    new THREE.MeshPhongMaterial({ color: 0x2255cc }),
+        carRed:  new THREE.MeshPhongMaterial({ color: 0xdd2222 }),
+        carGlass:new THREE.MeshPhongMaterial({ color: 0xaaccff, transparent: true, opacity: 0.55 }),
+        cone:    new THREE.MeshPhongMaterial({ color: 0xff4400 }),
+        coneW:   new THREE.MeshPhongMaterial({ color: 0xffffff }),
+        pole:    new THREE.MeshPhongMaterial({ color: 0x555555 }),
+        sigBox:  new THREE.MeshPhongMaterial({ color: 0x111111 }),
+        asphalt: new THREE.MeshPhongMaterial({ color: 0x2a2a2a }),
+        curb:    new THREE.MeshPhongMaterial({ color: 0x888888 }),
+        trunk:   new THREE.MeshPhongMaterial({ color: 0x5c3a1e }),
+        leaf:    new THREE.MeshPhongMaterial({ color: 0x2d6a2d }),
+        building:new THREE.MeshPhongMaterial({ color: 0x334455 }),
+    };
+
+    // ===== オブジェクト生成 =====
+    function makeHuman() {
+        var g = new THREE.Group();
+        var head = new THREE.Mesh(new THREE.SphereGeometry(0.45,8,8), MAT.skin.clone());
+        head.position.y = 2.6; g.add(head);
+        var body = new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.28,1.4,8), MAT.blue.clone());
+        body.position.y = 1.55; g.add(body);
+        var legL = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.1,1.0,6), MAT.blue.clone());
+        legL.position.set(-0.18,0.5,0); g.add(legL);
+        var legR = legL.clone(); legR.position.x = 0.18; g.add(legR);
+        return g;
+    }
+
+    function makeCar() {
+        var g = new THREE.Group();
+        var body = new THREE.Mesh(new THREE.BoxGeometry(2.4,0.9,4.2), MAT.carRed.clone());
+        body.position.y = 0.8; g.add(body);
+        var roof = new THREE.Mesh(new THREE.BoxGeometry(1.7,0.75,2.2), MAT.carGlass.clone());
+        roof.position.y = 1.65; g.add(roof);
+        var wGeo = new THREE.CylinderGeometry(0.32,0.32,0.22,12);
+        var wMat = new THREE.MeshPhongMaterial({color:0x111111});
+        [[-1.25,0.35,1.3],[1.25,0.35,1.3],[-1.25,0.35,-1.3],[1.25,0.35,-1.3]].forEach(function(p){
+            var w = new THREE.Mesh(wGeo, wMat); w.rotation.z = Math.PI/2;
+            w.position.set(p[0],p[1],p[2]); g.add(w);
+        });
+        return g;
+    }
+
+    function makeCone() {
+        var g = new THREE.Group();
+        var body = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.65,1.4,12), MAT.cone.clone());
+        body.position.y = 0.7; g.add(body);
+        var stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.42,0.18,12), MAT.coneW.clone());
+        stripe.position.y = 0.55; g.add(stripe);
+        var base = new THREE.Mesh(new THREE.CylinderGeometry(0.7,0.75,0.07,12), MAT.cone.clone());
+        base.position.y = 0.035; g.add(base);
+        return g;
+    }
+
+    // 信号機（3灯 + ポール + アーム）
+    function makeTrafficLight(flipX) {
+        var g = new THREE.Group();
+        var pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.15,7,8), MAT.pole.clone());
+        pole.position.y = 3.5; g.add(pole);
+        var arm = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,3.5,8), MAT.pole.clone());
+        arm.rotation.z = Math.PI/2;
+        arm.position.set(flipX ? -1.75 : 1.75, 7, 0); g.add(arm);
+        var bx = flipX ? -3.5 : 3.5;
+        var box = new THREE.Mesh(new THREE.BoxGeometry(0.65,1.9,0.5), MAT.sigBox.clone());
+        box.position.set(bx, 6.5, 0); g.add(box);
+
+        var lGeo = new THREE.SphereGeometry(0.2,10,10);
+        function lamp(col, yo) {
+            var m = new THREE.MeshPhongMaterial({color: col, emissive: 0x000000});
+            var mesh = new THREE.Mesh(lGeo, m);
+            mesh.position.set(bx, yo, 0.28); g.add(mesh); return mesh;
+        }
+        var lR = lamp(0x550000, 7.1);
+        var lY = lamp(0x554400, 6.5);
+        var lG = lamp(0x005500, 5.9);
+
+        g._setLight = function(c) {
+            lR.material.emissive.set(c==='red'    ? 0xff0000 : 0x000000);
+            lY.material.emissive.set(c==='yellow' ? 0xffcc00 : 0x000000);
+            lG.material.emissive.set(c==='green'  ? 0x00ee44 : 0x000000);
+            lR.material.color.set(c==='red'    ? 0xff2200 : 0x550000);
+            lY.material.color.set(c==='yellow' ? 0xffcc00 : 0x554400);
+            lG.material.color.set(c==='green'  ? 0x00ee44 : 0x005500);
+        };
+        g._blinkOff = function() {
+            lR.material.emissive.set(0x000000); lR.material.color.set(0x550000);
+            lY.material.emissive.set(0x000000); lY.material.color.set(0x554400);
+        };
+        g._blinkOn = function(color) {
+            if (color === 'yellow') {
+                lR.material.emissive.set(0x000000); lR.material.color.set(0x550000);
+                lY.material.emissive.set(0xffcc00); lY.material.color.set(0xffcc00);
+            } else {
+                lR.material.emissive.set(0xff0000); lR.material.color.set(0xff2200);
+                lY.material.emissive.set(0x000000); lY.material.color.set(0x554400);
+            }
+        };
+        g._setLight('red');
+        return g;
+    }
+
+    // 交差点（横断歩道 + 停止線 + 信号×2 + 交差道路）
+    function makeIntersection(z) {
+        var g = new THREE.Group();
+
+        // 交差道路（横）
+        var crossRoad = new THREE.Mesh(new THREE.PlaneGeometry(60, 10), MAT.asphalt.clone());
+        crossRoad.rotation.x = -Math.PI/2; crossRoad.position.y = 0.005; g.add(crossRoad);
+
+        // 横断歩道（白縞）
+        for (var s = -3; s <= 3; s++) {
+            var stripe = new THREE.Mesh(new THREE.PlaneGeometry(14, 1.0), MAT.white.clone());
+            stripe.rotation.x = -Math.PI/2;
+            stripe.position.set(0, 0.02, s * 1.6); g.add(stripe);
+        }
+
+        // 停止線（手前）
+        var stop = new THREE.Mesh(new THREE.PlaneGeometry(14, 0.35), MAT.white.clone());
+        stop.rotation.x = -Math.PI/2; stop.position.set(0, 0.02, 6); g.add(stop);
+
+        // 信号機（左右）
+        var tl1 = makeTrafficLight(false); tl1.position.set(-9, 0, 2); g.add(tl1);
+        var tl2 = makeTrafficLight(true);  tl2.position.set( 9, 0, 2); g.add(tl2);
+
+        g.position.set(0, 0, z);
+        g.visible = false;
+
+        // 状態
+        g._z           = z;
+        g._triggered   = false;
+        g._reacted     = false;
+        g._phase       = 'blink';
+        g._blinkColor  = Math.random() < 0.5 ? 'red' : 'yellow'; // 赤か黄をランダムに決定
+        g._phaseStart  = 0;
+        g._reactStart  = 0;
+        g._tl1 = tl1; g._tl2 = tl2;
+
+        g._setPhase = function(p) {
+            g._phase = p;
+            updateHUDSignal(p === 'blink' ? g._blinkColor : p);
+        };
+        return g;
+    }
+
+    // 障害物ラッパー
+    function makeObstacleGroup(z) {
+        var types = ['コーン', '人間'];
+        var label = types[Math.floor(Math.random()*types.length)];
+        var mesh;
+        if      (label === '人間')   mesh = makeHuman();
+        else if (label === '自動車') mesh = makeCar();
+        else                         mesh = makeCone();
+
+        var g = new THREE.Group(); g.add(mesh);
+        g.position.set((Math.random()-0.5)*5.5, 0, z);
+        g.visible = false;
+        g._triggered  = false;
+        g._reacted    = false;
+        g._typeLabel  = label;
+        g._appearedAt = 0;
+        return g;
+    }
+
+    // ===== HUD信号インジケーター更新 =====
+    function updateHUDSignal(phase) {
+        var ind = document.getElementById('signal-indicator');
+        var r = document.getElementById('sig-red');
+        var y = document.getElementById('sig-yellow');
+        var gr= document.getElementById('sig-green');
+        r.className  = 'sig-lamp red'    + (phase === 'red'    ? ' on' : '');
+        y.className  = 'sig-lamp yellow' + (phase === 'yellow' ? ' on' : '');
+        gr.className = 'sig-lamp green';
+        ind.style.display = (phase === 'red' || phase === 'yellow') ? 'block' : 'none';
+    }
+
+    // ===== ゲーム終了 =====
+    function endGame() {
+        gameOver = true;                    // 先にフラグを立ててループを止める
+        cancelAnimationFrame(animId);
+        hidePrompt();
+
+        var count = sessionResults.length;
+        var avg = '---', best = '---';
+        if (count > 0) {
+            var times = sessionResults.map(function(r){ return r['反応速度(ms)']; });
+            avg  = Math.round(times.reduce(function(a,b){ return a+b; }, 0) / times.length);
+            best = Math.min.apply(null, times);
+        }
+        document.getElementById('go-count').textContent = count;
+        document.getElementById('go-avg').textContent   = avg;
+        document.getElementById('go-best').textContent  = best;
+
+        var gs = document.getElementById('gameover-screen');
+        gs.style.display = 'flex';
+    }
+
+    // ===== 反応トリガー =====
+    function triggerReact() {
+        // 障害物（人間のみ）
+        if (activeObstacle && activeObstacle.visible && !activeObstacle._reacted) {
+            var rt = Math.round(performance.now() - activeObstacle._appearedAt);
+            activeObstacle._reacted = true;
+            activeObstacle.visible  = false;
+            recordResult(activeObstacle._typeLabel, rt);
+            activeObstacle = null;
+            hidePrompt();
+            showFlash();
+            return;
+        }
+    }
+
+    function recordResult(label, rt) {
+        document.getElementById('react-time').textContent = rt;
+        var c = document.getElementById('count');
+        c.textContent = parseInt(c.textContent) + 1;
+        var now = new Date();
+        var entry = {
+            'プレイヤーID': userData.playerId,
+            '年齢': userData.age, '性別': userData.gender,
+            '対象物': label, '反応速度(ms)': rt,
+            '日時': now.toLocaleString()
+        };
+        sessionResults.push(entry);
+
+        // Firestore に保存
+        if (window.db && window.firestoreAddDoc && window.firestoreCollection) {
+            window.firestoreAddDoc(window.firestoreCollection(window.db, 'results'), {
+                playerId: userData.playerId,
+                reactionTimeMs: rt,
+                targetType: label,
+                playedAt: now.toISOString(),
+                age: userData.age,
+                gender: userData.gender
+            }).catch(function(e) { console.error('Firestore保存エラー:', e); });
+        }
+    }
+
+    function showPrompt(msg) {
+        var el = document.getElementById('space-prompt');
+        el.textContent = msg;
+        el.style.display = 'block';
+    }
+    function hidePrompt() { document.getElementById('space-prompt').style.display = 'none'; }
+
+    function showFlash() {
+        var f = document.getElementById('react-flash');
+        f.style.animation = 'none';
+        f.style.display = 'block';
+        f.style.opacity = '1';
+        void f.offsetWidth;
+        f.style.animation = 'flash 0.35s ease-out forwards';
+        setTimeout(function() { f.style.display = 'none'; }, 350);
+    }
+
+    // ===== 背景装飾 =====
+    function addScenery() {
+        // 縁石
+        var curbMat = MAT.curb.clone();
+        [-8.2, 8.2].forEach(function(x) {
+            var curb = new THREE.Mesh(new THREE.BoxGeometry(0.35,0.12,12000), curbMat);
+            curb.position.set(x, 0.06, -6000); scene.add(curb);
+        });
+
+        // 白線（センター破線）
+        var dashMat = new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.75});
+        for (var i = 0; i < 800; i++) {
+            var line = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 5), dashMat);
+            line.rotation.x = -Math.PI/2; line.position.set(0, 0.01, -i*15);
+            scene.add(line);
+        }
+        // 端線
+        [-6.2, 6.2].forEach(function(x) {
+            var sl = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 12000), MAT.white.clone());
+            sl.rotation.x = -Math.PI/2; sl.position.set(x, 0.01, -6000);
+            scene.add(sl);
+        });
+
+        // 建物
+        var bColors = [0x1e2d3d, 0x2a3a4a, 0x1a2535, 0x2d3d4e, 0x263344];
+        for (var b = 0; b < 80; b++) {
+            var h = 4 + Math.random()*18;
+            var bMat = new THREE.MeshPhongMaterial({color: bColors[b%bColors.length]});
+            var bld = new THREE.Mesh(new THREE.BoxGeometry(3+Math.random()*5, h, 3+Math.random()*5), bMat);
+            var side = b % 2 === 0 ? 1 : -1;
+            bld.position.set(side*(12+Math.random()*7), h/2, -b*90-40);
+            scene.add(bld);
+            // 窓（ランダム点灯）
+            if (Math.random() > 0.3) {
+                var winMat = new THREE.MeshBasicMaterial({color:0xffffaa, transparent:true, opacity:0.3+Math.random()*0.5});
+                var win = new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.7), winMat);
+                win.rotation.y = side > 0 ? Math.PI : 0;
+                win.position.set(side*(12+Math.random()*7) - side*1.6, 1+Math.random()*(h-2), -b*90-40);
+                scene.add(win);
+            }
+        }
+
+        // 街路樹
+        var trunkM = MAT.trunk.clone(), leafM = MAT.leaf.clone();
+        for (var t = 0; t < 120; t++) {
+            var tg = new THREE.Group();
+            var trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.16,3,6), trunkM);
+            trunk.position.y = 1.5; tg.add(trunk);
+            var leaves = new THREE.Mesh(new THREE.SphereGeometry(1.3+Math.random()*0.4,7,7), leafM);
+            leaves.position.y = 3.6; tg.add(leaves);
+            tg.position.set((t%2===0?1:-1)*8.8, 0, -t*38-15);
+            scene.add(tg);
+        }
+
+        // 街灯
+        var lampPoleMat = new THREE.MeshPhongMaterial({color:0x777777});
+        var lampHeadMat = new THREE.MeshPhongMaterial({color:0x222222});
+        var lampLightMat = new THREE.MeshBasicMaterial({color:0xffeeaa});
+        for (var l = 0; l < 60; l++) {
+            var lg = new THREE.Group();
+            var lpole = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.08,5,6), lampPoleMat.clone());
+            lpole.position.y = 2.5; lg.add(lpole);
+            var lhead = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.15,0.3), lampHeadMat.clone());
+            lhead.position.set(0.3, 5.1, 0); lg.add(lhead);
+            var llight = new THREE.Mesh(new THREE.PlaneGeometry(0.25,0.25), lampLightMat.clone());
+            llight.rotation.x = -Math.PI/2; llight.position.set(0.3, 5.0, 0); lg.add(llight);
+            lg.position.set((l%2===0?1:-1)*9.5, 0, -l*55-30);
+            scene.add(lg);
+        }
+    }
+
+    // ===== 交差点配置（300〜600m間隔） =====
+    function buildIntersections() {
+        var z = -150;
+        for (var i = 0; i < NUM_INTER; i++) {
+            var spacing = INTER_MIN + Math.random()*(INTER_MAX - INTER_MIN);
+            z -= spacing;
+            var inter = makeIntersection(z);
+            scene.add(inter);
+            intersections.push(inter);
+        }
+    }
+
+    // ===== 初期化 =====
+    function init() {
+        document.getElementById('exit-btn').style.display = 'block';
+        document.getElementById('ui').style.display = 'block';
+        if ('ontouchstart' in window) {
+            document.getElementById('touch-controls').style.display = 'flex';
+            document.getElementById('touch-react').style.display = 'flex';
+        } else {
+            document.getElementById('controls-overlay').style.display = 'block';
+        }
+
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0d1520);
+        scene.fog = new THREE.FogExp2(0x0d1520, 0.0035);
+
+        camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.1, 2000);
+        camera.position.set(0, 1.8, 5);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.insertBefore(renderer.domElement, document.body.firstChild);
+
+        // 照明
+        scene.add(new THREE.AmbientLight(0x223344, 1.0));
+        var sun = new THREE.DirectionalLight(0xffffff, 0.7);
+        sun.position.set(8, 20, 10); scene.add(sun);
+        var headlight = new THREE.SpotLight(0xffffee, 2.5, 100, Math.PI/7, 0.4);
+        headlight.position.set(0, 1.5, 4);
+        headlight.target.position.set(0, 0, -60); scene.add(headlight); scene.add(headlight.target);
+
+        // ===== 街灯 =====
+        var lampPositions = [];
+        for (var li = 0; li < 60; li++) {
+            var lz = -li * 110 - 30;
+            var lx = li % 2 === 0 ? 9.5 : -9.5;
+
+            // ポール
+            var poleMat = new THREE.MeshPhongMaterial({ color: 0x888899 });
+            var pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 5.5, 6), poleMat);
+            pole.position.set(lx, 2.75, lz);
+            scene.add(pole);
+
+            // アーム
+            var armMat = new THREE.MeshPhongMaterial({ color: 0x777788 });
+            var arm = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.8, 5), armMat);
+            arm.rotation.z = Math.PI / 2;
+            arm.position.set(lx + (lx > 0 ? -0.9 : 0.9), 5.5, lz);
+            scene.add(arm);
+
+            // ランプグロー（MeshBasicMaterial で常時光る球）
+            var glowMat = new THREE.MeshBasicMaterial({ color: 0xfff5cc, transparent: true, opacity: 0.92 });
+            var glow = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 8), glowMat);
+            glow.position.set(lx + (lx > 0 ? -1.8 : 1.8), 5.5, lz);
+            scene.add(glow);
+
+            // PointLight（範囲を絞って負荷軽減）
+            var pl = new THREE.PointLight(0xffe8a0, 1.6, 28);
+            pl.position.set(lx + (lx > 0 ? -1.8 : 1.8), 5.5, lz);
+            scene.add(pl);
+            lampPositions.push({ light: pl, gz: lz });
+
+            // 路面への光の落とし（薄い円）
+            var spotMat = new THREE.MeshBasicMaterial({ color: 0xffe8a0, transparent: true, opacity: 0.08, side: THREE.DoubleSide });
+            var spot = new THREE.Mesh(new THREE.CircleGeometry(5, 16), spotMat);
+            spot.rotation.x = -Math.PI / 2;
+            spot.position.set(lx + (lx > 0 ? -1.8 : 1.8), 0.02, lz);
+            scene.add(spot);
+        }
+
+        // 道路
+        var road = new THREE.Mesh(new THREE.PlaneGeometry(16, 15000), MAT.road.clone());
+        road.rotation.x = -Math.PI/2; road.position.set(0,0,-7500); scene.add(road);
+
+        addScenery();
+        buildIntersections();
+
+        gameStartTime = performance.now();
+        gameOver      = false;
+
+        // 障害物（25個）
+        for (var i = 0; i < 25; i++) {
+            var ob = makeObstacleGroup(-100 - i * 100);
+            scene.add(ob); obstacles.push(ob);
+        }
+
+        animate();
+    }
+
+    // ===== アニメーションループ =====
+    function animate() {
+        animId = requestAnimationFrame(animate);
+
+        if (gameOver) return;
+
+        // ── タイマー更新 ──
+        var elapsed  = performance.now() - gameStartTime;
+        var remain   = Math.max(0, GAME_DURATION - elapsed);
+        var remSec   = Math.ceil(remain / 1000);
+        var mm = Math.floor(remSec / 60);
+        var ss = remSec % 60;
+        var timerEl = document.getElementById('timer');
+        timerEl.textContent = mm + ':' + (ss < 10 ? '0' : '') + ss;
+        // 残り60秒以下で赤く警告
+        timerEl.style.color = remain <= 60000 ? '#ff4444' : (remain <= 180000 ? '#ffaa00' : '#ffee44');
+
+        // ── 3分経過後に右端の点滅ライトを表示 ──
+        var edgeLight = document.getElementById('edge-blink-light');
+        if (elapsed >= 3 * 60 * 1000 && edgeLight.style.display !== 'block') {
+            edgeLight.style.display = 'block';
+        }
+
+        if (remain <= 0) {
+            endGame();
+            return;
+        }
+
+        // 移動（左右）
+        if (keys['a'] || keys['arrowleft'] || touchLeft)
+            camera.position.x = Math.max(camera.position.x - 0.16, -5.8);
+        if (keys['d'] || keys['arrowright'] || touchRight)
+            camera.position.x = Math.min(camera.position.x + 0.16,  5.8);
+
+        // ブレーキ・アクセル判定
+        braking     = !!(keys['s'] || keys['arrowdown'] || touchBrake);
+        accelerating= !!(keys['w'] || keys['arrowup']   || touchAccel);
+
+        if (braking && !accelerating) {
+            // ブレーキ：急減速
+            spd = Math.max(spd * 0.88, SPD_BRAKE_MIN);
+        } else if (accelerating && !braking) {
+            // アクセル：高速加速
+            spd = Math.min(spd + 0.008, SPD_ACCEL_MAX);
+        } else {
+            // 何も押さない：徐々に基本速度へ収束
+            if (spd > SPD_MAX) {
+                spd = Math.max(spd - 0.004, SPD_MAX);   // アクセル解放→自然減速
+            } else {
+                spd = Math.min(spd + 0.00012, SPD_MAX); // 自然加速
+            }
+        }
+
+        camera.position.z -= spd;
+        camera.position.y = 1.8 + Math.sin(Date.now() * 0.0025) * 0.018;
+        // spd を現実的な km/h へマッピング（SPD_BASE=20km/h, SPD_MAX=60km/h, SPD_ACCEL_MAX=120km/h）
+        var kmh = Math.round(20 + (spd - SPD_BASE) / (SPD_ACCEL_MAX - SPD_BASE) * 100);
+        document.getElementById('speed').textContent = Math.max(0, kmh);
+
+        // ブレーキランプ オーバーレイ
+        var brakeOverlay = document.getElementById('brake-overlay');
+        brakeOverlay.style.opacity = (braking && !accelerating) ? String(Math.min((1 - spd/SPD_MAX) * 0.45 + 0.08, 0.45)) : '0';
+
+        // アクセルオーバーレイ
+        var accelOverlay = document.getElementById('accel-overlay');
+        var speedLines   = document.getElementById('speed-lines');
+        var accelRatio   = Math.max(0, (spd - SPD_MAX) / (SPD_ACCEL_MAX - SPD_MAX));
+        accelOverlay.style.opacity = accelerating ? String(0.15 + accelRatio * 0.5) : '0';
+        speedLines.style.opacity   = accelerating ? String(accelRatio * 0.9) : '0';
+
+        // ブレーキインジケーター
+        document.getElementById('brake-indicator').style.display = (braking && !accelerating) ? 'block' : 'none';
+
+        // アクセルインジケーター
+        document.getElementById('accel-indicator').style.display = (accelerating && !braking) ? 'block' : 'none';
+
+        var now = performance.now();
+
+        // ── 障害物 ──
+        obstacles.forEach(function(ob) {
+            var dz = camera.position.z - ob.position.z; // 正=手前
+
+            // 表示トリガー
+            if (!ob._triggered && dz > 0 && dz < OB_TRIGGER) {
+                ob.visible = true;
+                ob._triggered  = true;
+                ob._reacted    = false;
+                ob._appearedAt = now;
+                // 人間のみ：出現と同時にアクティブ化・計測開始
+                if (ob._typeLabel === '人間') {
+                    activeObstacle = ob;
+                }
+            }
+
+            // 通過リサイクル（2400m先へ）
+            if (dz < -20) {
+                ob.visible = false;
+                ob.position.set((Math.random()-0.5)*5.5, 0, ob.position.z - 2400);
+                ob._triggered = false;
+                ob._reacted   = false;
+                if (activeObstacle === ob) { activeObstacle = null; hidePrompt(); }
+            }
+        });
+
+        // ── 交差点・信号 ──
+        intersections.forEach(function(inter) {
+            var dz = camera.position.z - inter._z;
+
+            // 表示トリガー
+            if (!inter._triggered && dz > 0 && dz < SIGNAL_TRIGGER + 30) {
+                inter.visible     = true;
+                inter._triggered  = true;
+                inter._reacted    = true;
+                inter._phase      = 'blink';
+                inter._phaseStart = now;
+                inter._setPhase('blink');
+            }
+
+            if (!inter.visible) return;
+
+            // 点滅（500ms間隔）
+            if (inter._phase === 'blink') {
+                var blinkOn = Math.floor((now - inter._phaseStart) / 500) % 2 === 0;
+                if (blinkOn) {
+                    inter._tl1._blinkOn(inter._blinkColor);
+                    inter._tl2._blinkOn(inter._blinkColor);
+                } else {
+                    inter._tl1._blinkOff();
+                    inter._tl2._blinkOff();
+                }
+                var ind = document.getElementById('signal-indicator');
+                ind.style.opacity = blinkOn ? '1' : '0.15';
+            }
+
+            // 通過リサイクル（NUM_INTER×平均間隔先へ）
+            if (dz < -80) {
+                var newSpacing = INTER_MIN + Math.random()*(INTER_MAX - INTER_MIN);
+                // 現在最も手前の交差点の先に再配置
+                var minZ = inter._z;
+                intersections.forEach(function(ii) { if (ii._z < minZ) minZ = ii._z; });
+                inter._z = minZ - newSpacing;
+                inter.position.z = inter._z;
+                inter.visible     = false;
+                inter._triggered  = false;
+                inter._reacted    = false;
+                inter._phase      = 'blink';
+                inter._blinkColor = Math.random() < 0.5 ? 'red' : 'yellow';
+                inter._setPhase('blink');
+                document.getElementById('signal-indicator').style.opacity = '1';
+                if (activeSignal === inter) { activeSignal = null; hidePrompt(); }
+            }
+        });
+
+        renderer.render(scene, camera);
+    }
+
+    // ===== キーボード =====
+    window.addEventListener('keydown', function(e) {
+        keys[e.key.toLowerCase()] = true;
+        if (e.code === 'Space') { e.preventDefault(); triggerReact(); }
+    });
+    window.addEventListener('keyup', function(e) { keys[e.key.toLowerCase()] = false; });
+
+    // ===== タッチ =====
+    document.getElementById('touch-left').addEventListener('touchstart',  function(e){ e.preventDefault(); touchLeft=true; }, {passive:false});
+    document.getElementById('touch-left').addEventListener('touchend',    function(){ touchLeft=false; });
+    document.getElementById('touch-right').addEventListener('touchstart', function(e){ e.preventDefault(); touchRight=true; }, {passive:false});
+    document.getElementById('touch-right').addEventListener('touchend',   function(){ touchRight=false; });
+    document.getElementById('touch-brake').addEventListener('touchstart', function(e){ e.preventDefault(); touchBrake=true; }, {passive:false});
+    document.getElementById('touch-brake').addEventListener('touchend',   function(){ touchBrake=false; });
+    document.getElementById('touch-accel').addEventListener('touchstart', function(e){ e.preventDefault(); touchAccel=true; }, {passive:false});
+    document.getElementById('touch-accel').addEventListener('touchend',   function(){ touchAccel=false; });
+    // マウスでもアクセル操作可能
+    document.getElementById('touch-accel').addEventListener('mousedown',  function(){ touchAccel=true; });
+    document.getElementById('touch-accel').addEventListener('mouseup',    function(){ touchAccel=false; });
+    document.getElementById('touch-accel').addEventListener('mouseleave', function(){ touchAccel=false; });
+    document.getElementById('touch-brake').addEventListener('mousedown',  function(){ touchBrake=true; });
+    document.getElementById('touch-brake').addEventListener('mouseup',    function(){ touchBrake=false; });
+    document.getElementById('touch-brake').addEventListener('mouseleave', function(){ touchBrake=false; });
+    document.getElementById('touch-react').addEventListener('touchstart', function(e){ e.preventDefault(); triggerReact(); }, {passive:false});
+    document.getElementById('touch-react').addEventListener('click', triggerReact);
+
+    // ===== Excel保存 =====
+    function downloadExcel() {
+        if (sessionResults.length === 0) { alert('記録がありません'); return; }
+        var wb = XLSX.utils.book_new();
+        var ws = XLSX.utils.json_to_sheet(sessionResults);
+        XLSX.utils.book_append_sheet(wb, ws, '反応速度データ');
+        XLSX.writeFile(wb, 'Driving_Test_Result.xlsx');
+    }
+
+    // ===== スタートボタン =====
+    document.getElementById('start-btn').addEventListener('click', function() {
+        var age    = document.getElementById('input-age').value;
+        var gender = document.querySelector('input[name="gender"]:checked');
+        if (!age || !gender) { alert('年齢と性別を入力してください'); return; }
+        userData.playerId = 'P-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+        userData.age    = age;
+        userData.gender = gender.value;
+        document.getElementById('start-screen').style.display = 'none';
+        var rulesScreen = document.getElementById('rules-screen');
+        rulesScreen.style.display = 'flex';
+    });
+
+    // ===== ルール画面のゲームスタートボタン =====
+    document.getElementById('rules-start-btn').addEventListener('click', function() {
+        document.getElementById('rules-screen').style.display = 'none';
+        init();
+    });
+
+    // ===== 終了ボタン =====
+    document.getElementById('exit-btn').addEventListener('click', function() {
+        if (confirm('データをダウンロードして終了しますか？')) {
+            gameOver = true;
+            cancelAnimationFrame(animId);
+            downloadExcel();
+            setTimeout(function() { location.reload(); }, 1500);
+        }
+    });
+
+    // ===== ゲームオーバー画面ボタン =====
+    document.getElementById('go-save-btn').addEventListener('click', function() {
+        downloadExcel();
+    });
+    document.getElementById('go-reload-btn').addEventListener('click', function() {
+        location.reload();
+    });
+
+    // ===== リサイズ =====
+    window.addEventListener('resize', function() {
+        if (!camera || !renderer) return;
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+})();
+</script>
+</body>
+</html>
